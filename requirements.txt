@@ -8,3 +8,5 @@ folium>=0.15.0
 pillow>=10.0.0
 shapely>=2.0.0
 reportlab>=4.0.0
+streamlit>=1.32.0
+streamlit-folium>=0.18.0
