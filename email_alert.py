@@ -8,7 +8,7 @@ def send_alert_email(location, temp_c, receiver=None):
     receiver = receiver or os.getenv("ALERT_RECEIVER")
 
     if not sender or not password or not receiver:
-        return False, "Email credentials missing"
+        return False, "Email credentials missing in .env"
 
     subject = f"🔥 Heat Alert: {location}"
     body = (
