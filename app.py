@@ -18,55 +18,194 @@ if "user_email" not in st.session_state:
 if st.session_state.user_email is None:
     st.markdown("""
     <style>
+    /* Hide default streamlit chrome on the sign-in screen */
+    #MainMenu, footer, header { visibility: hidden; }
+
+    .stApp {
+        background:
+            radial-gradient(circle at 15% 20%, rgba(255,92,92,0.18), transparent 42%),
+            radial-gradient(circle at 85% 15%, rgba(255,140,66,0.14), transparent 40%),
+            radial-gradient(circle at 50% 90%, rgba(74,222,128,0.08), transparent 45%),
+            linear-gradient(160deg, #050b16 0%, #0a1628 45%, #0d1c33 100%);
+        background-attachment: fixed;
+    }
+
+    @keyframes floatUp {
+        0%   { transform: translateY(0px); }
+        50%  { transform: translateY(-8px); }
+        100% { transform: translateY(0px); }
+    }
+    @keyframes fadeSlideIn {
+        0%   { opacity: 0; transform: translateY(18px); }
+        100% { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes glowPulse {
+        0%, 100% { box-shadow: 0 8px 30px rgba(255,92,92,0.35), 0 0 0 0 rgba(255,140,66,0.0); }
+        50%      { box-shadow: 0 8px 40px rgba(255,92,92,0.5), 0 0 0 8px rgba(255,140,66,0.06); }
+    }
+
     .signin-wrap {
         display:flex;
         flex-direction:column;
         align-items:center;
         justify-content:center;
-        padding-top: 60px;
+        padding-top: 54px;
+        animation: fadeSlideIn 0.7s ease-out;
     }
     .signin-logo {
         background:linear-gradient(135deg,#ff5c5c,#ff8c42);
-        width:72px; height:72px;
-        border-radius:20px;
+        width:76px; height:76px;
+        border-radius:22px;
         display:flex; align-items:center; justify-content:center;
-        font-size:36px;
-        box-shadow:0 8px 24px rgba(255,92,92,0.35);
-        margin-bottom:18px;
+        font-size:38px;
+        margin-bottom:20px;
+        animation: floatUp 3.5s ease-in-out infinite, glowPulse 3.5s ease-in-out infinite;
     }
     .signin-title {
-        font-size:34px;
+        font-size:38px;
         font-weight:800;
-        color:#ffffff;
+        background: linear-gradient(90deg, #ffffff, #b9c9e4);
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
         margin:0;
-        letter-spacing:-0.5px;
+        letter-spacing:-0.8px;
     }
     .signin-sub {
-        color:#7a92b5;
-        font-size:15px;
-        margin-top:6px;
-        margin-bottom:36px;
+        color:#8fa3bf;
+        font-size:15.5px;
+        margin-top:8px;
+        margin-bottom:8px;
         text-align:center;
+        max-width: 420px;
+        line-height: 1.5;
+    }
+    .signin-badge {
+        display:inline-flex;
+        align-items:center;
+        gap:6px;
+        background: rgba(74,222,128,0.1);
+        border: 1px solid rgba(74,222,128,0.25);
+        color:#4ade80;
+        font-size:12px;
+        font-weight:600;
+        padding:5px 14px;
+        border-radius:20px;
+        margin-bottom: 30px;
+        letter-spacing: 0.3px;
+    }
+
+    .feature-row {
+        display:flex;
+        gap:14px;
+        justify-content:center;
+        flex-wrap:wrap;
+        max-width: 480px;
+        margin: 0 auto 30px auto;
+    }
+    .feature-chip {
+        background: rgba(255,255,255,0.03);
+        border: 1px solid rgba(255,255,255,0.08);
+        border-radius: 12px;
+        padding: 10px 14px;
+        text-align:center;
+        min-width: 118px;
+        backdrop-filter: blur(6px);
+    }
+    .feature-chip .fi { font-size: 18px; margin-bottom: 4px; }
+    .feature-chip .ft { font-size: 11.5px; color:#8fa3bf; font-weight:600; letter-spacing:0.2px; }
+
+    .signin-footer {
+        text-align:center;
+        color:#4c5c78;
+        font-size:12px;
+        margin-top: 26px;
+        letter-spacing: 0.2px;
+    }
+
+    /* Glassmorphism card override for the sign-in form container */
+    div[data-testid="stVerticalBlockBorderWrapper"] {
+        background: linear-gradient(160deg, rgba(18,34,61,0.85), rgba(10,22,40,0.9)) !important;
+        border: 1px solid rgba(255,255,255,0.12) !important;
+        border-radius: 20px !important;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.05) !important;
+        padding: 6px !important;
+        animation: fadeSlideIn 0.9s ease-out;
+    }
+
+    div[data-testid="stTextInput"] input {
+        border-radius: 10px !important;
+        border: 1px solid rgba(255,255,255,0.12) !important;
+        padding: 12px 14px !important;
+        font-size: 14.5px !important;
+    }
+    div[data-testid="stTextInput"] input:focus {
+        border-color: #ff8c42 !important;
+        box-shadow: 0 0 0 3px rgba(255,140,66,0.15) !important;
+    }
+
+    div.stButton > button[kind="primary"] {
+        background: linear-gradient(135deg,#ff5c5c,#ff8c42) !important;
+        border: none !important;
+        border-radius: 10px !important;
+        font-weight: 700 !important;
+        letter-spacing: 0.2px;
+        padding: 12px 0 !important;
+        box-shadow: 0 6px 18px rgba(255,92,92,0.35) !important;
+        transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+    div.stButton > button[kind="primary"]:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 10px 24px rgba(255,92,92,0.45) !important;
     }
     </style>
 
     <div class="signin-wrap">
         <div class="signin-logo">🌡️</div>
         <p class="signin-title">Heat Guardian</p>
-        <p class="signin-sub">Sign in to receive real-time heat alerts on your Gmail</p>
+        <p class="signin-sub">Real-time hyperlocal heat risk monitoring with instant Gmail alerts — stay safe wherever you go.</p>
+        <div class="signin-badge">● Live temperature data</div>
+    </div>
+
+    <div class="feature-row">
+        <div class="feature-chip"><div class="fi">📍</div><div class="ft">Hyperlocal Data</div></div>
+        <div class="feature-chip"><div class="fi">📧</div><div class="ft">Instant Alerts</div></div>
+        <div class="feature-chip"><div class="fi">🗺️</div><div class="ft">Route Planning</div></div>
+        <div class="feature-chip"><div class="fi">🚶</div><div class="ft">Safe Walk Mode</div></div>
     </div>
     """, unsafe_allow_html=True)
 
-    col1, col2, col3 = st.columns([1, 1.2, 1])
+    col1, col2, col3 = st.columns([1, 1.15, 1])
     with col2:
         with st.container(border=True):
-            email_input = st.text_input("📧 Gmail address", placeholder="you@gmail.com")
-            if st.button("Sign in with Gmail", type="primary", use_container_width=True):
+            st.markdown(
+                "<div style='padding:22px 20px 6px 20px;'>"
+                "<div style='font-size:13px; font-weight:700; color:#cfe0f5; margin-bottom:14px; "
+                "letter-spacing:0.3px;'>🔐 SIGN IN TO CONTINUE</div></div>",
+                unsafe_allow_html=True,
+            )
+            email_input = st.text_input(
+                "Gmail address",
+                placeholder="you@gmail.com",
+                label_visibility="collapsed",
+            )
+            st.markdown("<div style='height:10px;'></div>", unsafe_allow_html=True)
+            if st.button("Sign in with Gmail →", type="primary", use_container_width=True):
                 if email_input and "@gmail.com" in email_input:
                     st.session_state.user_email = email_input
                     st.rerun()
                 else:
                     st.warning("Please enter a valid Gmail address.")
+            st.markdown(
+                "<div style='padding:10px 20px 18px 20px; text-align:center; font-size:11.5px; "
+                "color:#5a6b85;'>We'll only use this to send you heat safety alerts.</div>",
+                unsafe_allow_html=True,
+            )
+
+    st.markdown(
+        "<div class='signin-footer'>Heat Guardian • Powered by FortyGuard</div>",
+        unsafe_allow_html=True,
+    )
 
     st.stop()
 # ---------- CSS ----------
@@ -186,20 +325,21 @@ st.markdown("""
     padding: 20px;
 }
 .route-card {
-    background-color: #0e1a30;
+    background-color: #1d3a63;
+    border: 1px solid rgba(255,255,255,0.08);
     border-radius: 12px;
     padding: 16px;
     text-align: center;
 }
 .route-card.coolest { border: 2px solid #4ade80; }
-.route-card h5 { margin: 0; font-size: 14px; color: #cccccc; }
-.route-card p { margin: 6px 0 0 0; font-size: 20px; font-weight: 700; }
+.route-card h5 { margin: 0; font-size: 14px; color: #dbe6f5; }
+.route-card p { margin: 6px 0 0 0; font-size: 20px; font-weight: 700; color: #ffffff; }
 
 footer, #MainMenu { visibility: hidden; }
 div[data-testid="stVerticalBlockBorderWrapper"],
 div[data-testid="stVerticalBlockBorderWrapper"] > div,
 [class*="stVerticalBlockBorderWrapper"] {
-    background-color: rgba(18, 34, 61, 0.55) !important;
+    background-color: rgba(23, 45, 79, 0.92) !important;
     backdrop-filter: blur(12px) !important;
     -webkit-backdrop-filter: blur(12px) !important;
     border-radius: 16px !important;
@@ -253,15 +393,38 @@ with h2:
     st.markdown('<div style="text-align:right; padding-top:15px;"><span class="live-badge">● LIVE DATA</span></div>', unsafe_allow_html=True)
 
 # ---------- Controls ----------
-c1, c2, c3, c4 = st.columns([2, 1.5, 2, 1.5])
-with c1:
-    location_name = st.selectbox("📍 Search Location", list(LOCATIONS.keys()))
-with c2:
-    check_date = st.date_input("📅 Date", value=DEFAULT_DATE)
-with c3:
-    hour = st.slider("🕐 Hour", 0, 23, 14)
-with c4:
-    st.write("")
+location_mode = st.radio(
+    "📍 Location Input Method",
+    ["Select from List", "Manual (City + Lat/Lon)"],
+    horizontal=True
+)
+
+manual_lat = None
+manual_lon = None
+
+if location_mode == "Select from List":
+    c1, c2, c3, c4 = st.columns([2, 1.5, 2, 1.5])
+    with c1:
+        location_name = st.selectbox("📍 Search Location", list(LOCATIONS.keys()))
+    with c2:
+        check_date = st.date_input("📅 Date", value=DEFAULT_DATE)
+    with c3:
+        hour = st.slider("🕐 Hour", 0, 23, 14)
+    with c4:
+        st.write("")
+        check = st.button("🌡️ Check Temperature", type="primary", use_container_width=True)
+else:
+    c1, c2, c3, c4, c5 = st.columns([2, 1, 1, 1.3, 1.3])
+    with c1:
+        location_name = st.text_input("📍 City Name (manual)", placeholder="e.g. Multan, PK")
+    with c2:
+        manual_lat = st.number_input("🌐 Latitude", value=33.4484, format="%.4f")
+    with c3:
+        manual_lon = st.number_input("🌐 Longitude", value=-112.0740, format="%.4f")
+    with c4:
+        check_date = st.date_input("📅 Date", value=DEFAULT_DATE)
+    with c5:
+        hour = st.slider("🕐 Hour", 0, 23, 14)
     check = st.button("🌡️ Check Temperature", type="primary", use_container_width=True)
 
 time_formatted = f"{hour:02d}:00"
@@ -291,14 +454,31 @@ if "safe_walk_active" not in st.session_state:
     st.session_state.safe_walk_active = False
 if "safe_walk_last_risk" not in st.session_state:
     st.session_state.safe_walk_last_risk = None
+if "show_heat_map" not in st.session_state:
+    st.session_state.show_heat_map = False
+if "heat_map_data" not in st.session_state:
+    st.session_state.heat_map_data = None
+
 # ---------- On button click, real API call ----------
 if check:
-    lat, lon = LOCATIONS[location_name]
+    if location_mode == "Select from List":
+        lat, lon = LOCATIONS[location_name]
+        loc_display = location_name
+    else:
+        if not location_name:
+            st.error("Please enter a city name.")
+            st.stop()
+        if manual_lat is None or manual_lon is None:
+            st.error("Please enter valid latitude and longitude.")
+            st.stop()
+        lat, lon = manual_lat, manual_lon
+        loc_display = location_name
+
     with st.spinner("Fetching temperature data this may take 8-10 seconds..."):
         try:
             data = get_temperature_data(lat, lon, str(check_date), time_formatted)
             st.session_state.temp_result = data
-            st.session_state.temp_location = (location_name, lat, lon)
+            st.session_state.temp_location = (loc_display, lat, lon)
         except Exception as e:
             st.error(f"Error fetching data: {e}")
 
@@ -395,18 +575,15 @@ with col_a:
 if ask:
     if user_question:
         mentioned = [c for c in US_CITIES if c.lower() in user_question.lower()]
-        if len(mentioned) >= 2:
-            start_city, end_city = mentioned[0], mentioned[1]
-            with st.spinner("Checking temperatures across route... this may take 10-20 seconds"):
-                try:
-                    answer, plan = ask_ai_route(user_question, start_city, end_city, travel_date=str(ai_date))
-                    st.session_state.ai_answer = answer
-                    st.session_state.ai_plan = plan
-                except Exception as e:
-                    st.session_state.ai_answer = f"Error: {e}"
-                    st.session_state.ai_plan = None
-        else:
-            st.warning("Please mention two valid US city names.")
+        with st.spinner("Checking temperatures... this may take 30-60 seconds"):
+            try:
+                from route_planner import ask_ai
+                answer, result = ask_ai(user_question, mentioned, travel_date=str(ai_date))
+                st.session_state.ai_answer = answer
+                st.session_state.ai_result = result
+            except Exception as e:
+                st.session_state.ai_answer = f"Error: {e}"
+                st.session_state.ai_result = None
     else:
         st.warning("Please type a question first.")
 with col_b:

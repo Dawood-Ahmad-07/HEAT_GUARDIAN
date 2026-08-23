@@ -66,3 +66,30 @@ Give a short, friendly, helpful answer (3-5 sentences) recommending the best rou
     )
 
     return response.choices[0].message.content, plan
+
+
+def ask_ai(user_question, mentioned_cities, travel_date=None, travel_hour=14):
+    """
+    Wrapper used by app.py's chatbot box.
+    Takes the raw question + list of city names already detected inside it,
+    figures out a start/end city, and delegates to ask_ai_route.
+    """
+    # Need at least 2 recognized cities to build a route
+    if not mentioned_cities or len(mentioned_cities) < 2:
+        return (
+            "I couldn't detect two valid U.S. cities in your question. "
+            "Please mention both a starting city and a destination city, "
+            "e.g. 'route from Phoenix to New York'.",
+            None,
+        )
+
+    start_city = mentioned_cities[0]
+    end_city = mentioned_cities[-1]
+
+    return ask_ai_route(
+        user_question,
+        start_city,
+        end_city,
+        travel_date=travel_date,
+        travel_hour=travel_hour,
+    )
