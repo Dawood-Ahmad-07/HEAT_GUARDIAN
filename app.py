@@ -575,7 +575,7 @@ with col_a:
 if ask:
     if user_question:
         mentioned = [c for c in US_CITIES if c.lower() in user_question.lower()]
-        with st.spinner("Checking temperatures... this may take 30-60 seconds"):
+        with st.spinner("Checking temperatures... this may take 10-20 seconds"):
             try:
                 from route_planner import ask_ai
                 answer, result = ask_ai(user_question, mentioned, travel_date=str(ai_date))
