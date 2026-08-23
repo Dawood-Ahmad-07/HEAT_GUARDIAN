@@ -11,3 +11,5 @@ reportlab>=4.0.0
 streamlit>=1.32.0
 streamlit-folium>=0.18.0
 groq>=0.9.0
+streamlit-geolocation>=0.0.9
+streamlit-autorefresh>=1.0.1

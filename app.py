@@ -7,7 +7,8 @@ from alert_logic import get_risk
 from email_alert import send_alert_email
 from route_planner import ask_ai_route
 from waypoints import US_CITIES
-
+from streamlit_geolocation import streamlit_geolocation
+from streamlit_autorefresh import st_autorefresh
 st.set_page_config(page_title="Heat Guardian", page_icon="🌡️", layout="wide")
 # ---------- Sign-in gate ----------
 # ---------- Sign-in gate ----------
@@ -71,6 +72,26 @@ if st.session_state.user_email is None:
 # ---------- CSS ----------
 st.markdown("""
 <style>
+@keyframes bgSwitch {
+    0%, 49%   { background-image: url('app/static/image1.png'); }
+    50%, 100% { background-image: url('app/static/image2.png'); }
+}
+.stApp {
+    animation: bgSwitch 2s steps(1) infinite;
+    background-size: cover;
+    background-position: center;
+}
+.stApp::before {
+    content: "";
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(10,22,40,0.75);
+    z-index: -1;
+}
+</style>
+""", unsafe_allow_html=True)
+st.markdown("""
+<style>
 .stApp { background-color: #0a1628; }
 .stApp, .stApp p, .stApp label, .stApp span { color: #ffffff; }
 
@@ -106,6 +127,8 @@ st.markdown("""
     border-radius: 16px;
     padding: 24px;
     height: 100%;
+    backdrop-filter: blur(10px);
+-webkit-backdrop-filter: blur(10px);
 }
 .temp-card .loc { font-size: 15px; color: #ffd9d9; margin-bottom: 6px; }
 .temp-card .val { font-size: 52px; font-weight: 800; margin: 0; }
@@ -116,6 +139,8 @@ st.markdown("""
     border-radius: 16px;
     padding: 24px;
     height: 100%;
+    backdrop-filter: blur(10px);
+-webkit-backdrop-filter: blur(10px);
 }
 .risk-card.high { background-color: #2a2214; }
 .risk-card.normal { background-color: #14261a; }
@@ -131,6 +156,8 @@ st.markdown("""
     border-radius: 14px;
     padding: 18px;
     text-align: left;
+    backdrop-filter: blur(10px);
+-webkit-backdrop-filter: blur(10px);
 }
 .stat-card .icon { font-size: 22px; margin-bottom: 6px; }
 .stat-card .lbl { font-size: 13px; color: #8fa3bf; }
@@ -140,6 +167,8 @@ st.markdown("""
     background-color: #12223d;
     border-radius: 16px;
     padding: 14px;
+    backdrop-filter: blur(10px);
+-webkit-backdrop-filter: blur(10px);
 }
 .map-box h4 { margin: 0 0 10px 4px; font-size: 14px; color: #ffffff; }
 
@@ -167,7 +196,17 @@ st.markdown("""
 .route-card p { margin: 6px 0 0 0; font-size: 20px; font-weight: 700; }
 
 footer, #MainMenu { visibility: hidden; }
+div[data-testid="stVerticalBlockBorderWrapper"],
+div[data-testid="stVerticalBlockBorderWrapper"] > div,
+[class*="stVerticalBlockBorderWrapper"] {
+    background-color: rgba(18, 34, 61, 0.55) !important;
+    backdrop-filter: blur(12px) !important;
+    -webkit-backdrop-filter: blur(12px) !important;
+    border-radius: 16px !important;
+    border: 1px solid rgba(255,255,255,0.1) !important;
+}
 </style>
+
 """, unsafe_allow_html=True)
 
 LOCATIONS = {
@@ -248,11 +287,14 @@ if "ai_answer" not in st.session_state:
         ],
         "coolest_stop": {"city": "Chicago", "temp": 11.0},
     }
-
+if "safe_walk_active" not in st.session_state:
+    st.session_state.safe_walk_active = False
+if "safe_walk_last_risk" not in st.session_state:
+    st.session_state.safe_walk_last_risk = None
 # ---------- On button click, real API call ----------
 if check:
     lat, lon = LOCATIONS[location_name]
-    with st.spinner("Fetching temperature data please wait..."):
+    with st.spinner("Fetching temperature data this may take 8-10 seconds..."):
         try:
             data = get_temperature_data(lat, lon, str(check_date), time_formatted)
             st.session_state.temp_result = data
@@ -333,7 +375,7 @@ if temp is not None and temp > 30:
         st.markdown('</div>', unsafe_allow_html=True)
 
 st.markdown("<br>", unsafe_allow_html=True)
-st.markdown("---")
+
 
 # ---------- AI Chatbot ----------
 col_a, col_b = st.columns([1, 1.3])
@@ -401,5 +443,59 @@ with col_b:
 
            
         st.markdown('</div>', unsafe_allow_html=True)
+        
+st.markdown("---")
 
+with st.container(border=True):
+    st.subheader("🚶 Safe Walk Mode")
+    st.caption("Enable to continuously monitor your live location and get instant alert only for US states")
+    st.caption("Disclaimer: Currently not available because Fortyguard API does not support live location monitoring.")
+
+    interval_options = {
+        "Every 30 seconds": 30,
+        "Every 1 minute": 60,
+        "Every 5 minutes": 300,
+        "Every 15 minutes": 900,
+        "Every 30 minutes": 1800,
+        "Every 1 hour": 3600,
+    }
+    selected_interval_label = st.selectbox("⏱️ Check location every:", list(interval_options.keys()))
+    selected_interval_seconds = interval_options[selected_interval_label]
+
+    toggle = st.toggle("Enable Safe Walk Mode", value=st.session_state.safe_walk_active)
+    st.session_state.safe_walk_active = toggle
+
+    if st.session_state.safe_walk_active:
+        st.info(f"📡 Live monitoring active — checking your location {selected_interval_label.lower()}")
+        st_autorefresh(interval=selected_interval_seconds * 1000, key="safe_walk_refresh")
+
+        location_data = streamlit_geolocation()
+
+        if location_data and location_data.get("latitude") is not None:
+            live_lat = location_data["latitude"]
+            live_lon = location_data["longitude"]
+
+            with st.spinner("Checking current heat risk..."):
+                try:
+                    data = get_temperature_data(live_lat, live_lon, str(DEFAULT_DATE), "14:00")
+                    temp = data["temp"]
+                    if temp is not None:
+                        risk, message = get_risk(temp)
+
+                        st.write(f"📍 Current location: ({live_lat:.3f}, {live_lon:.3f})")
+                        st.write(f"🌡️ Temperature: {temp:.1f}°C — Risk: **{risk.upper()}**")
+
+                        if risk in ["high", "extreme"] and st.session_state.safe_walk_last_risk != risk:
+                            sent, info = send_alert_email(f"Live location ({live_lat:.2f}, {live_lon:.2f})", temp, receiver=st.session_state.user_email)
+                            if sent:
+                                st.warning(f"⚠️ You've entered a {risk.upper()} heat zone! Alert email sent.")
+                            st.session_state.safe_walk_last_risk = risk
+                        elif risk == "normal":
+                            st.session_state.safe_walk_last_risk = None
+                    else:
+                        st.warning("No temperature data available for this location (may be outside U.S. coverage).")
+                except Exception as e:
+                    st.error(f"Error checking location: {e}")
+        else:
+            st.info("Waiting for location permission — please allow location access in your browser.")
 st.markdown("<br><div style='text-align:center; color:#5a6b85; font-size:12px;'>Heat Guardian • Intelligent Heat Risk Monitoring • Powered by FortyGuard • Created by Dawood </div>", unsafe_allow_html=True)
