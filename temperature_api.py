@@ -5,8 +5,7 @@ from fortyguard import FortyGuardClient
 client = FortyGuardClient()
 
 def get_temperature_data(lat, lon, date, time):
-    """Returns dict: temp, humidity, apparent_temp — ya None agar data na mile"""
-    delta = 0.002
+    delta = 0.005  # thoda bada box, zyada tiles ke liye
     polygon = {
         "type": "FeatureCollection",
         "features": [{
@@ -24,37 +23,35 @@ def get_temperature_data(lat, lon, date, time):
         }],
     }
 
-    response = client.create_heatmap(
-        polygon_aoi=polygon,
-        start_date=date,
-        start_time=time,
-        filter_type=1,
-        granularity=60,
-    )
+    try:
+        response = client.create_heatmap(
+            polygon_aoi=polygon,
+            start_date=date,
+            start_time=time,
+            filter_type=1,
+            granularity=60,
+        )
+    except Exception as e:
+        print(f"[ERROR] API call failed for ({lat},{lon}): {e}")
+        return {"temp": None, "humidity": None, "apparent_temp": None}
 
     result = response.get("result", {})
     stats = result.get("stats_data", {})
     features = result.get("map_data", {}).get("features", [])
 
-    def extract(field_names, stats_key=None):
-        # pehle stats_data se try karo
-        if stats_key and stats_key in stats:
-            val = stats[stats_key].get("mean")
-            if val is not None:
-                return val
-        # fallback: tiles se average nikalo
-        for f_name in field_names:
-            vals = [f["properties"].get(f_name) for f in features if f["properties"].get(f_name) is not None]
-            if vals:
-                return sum(vals) / len(vals)
-        return None
+    print(f"[DEBUG] {lat},{lon} -> features count: {len(features)}, stats keys: {list(stats.keys())}")
 
-    temp = extract(["average_temperature", "temperature"], "temperature_stats")
-    humidity = extract(["relative_humidity_percent", "humidity"], "humidity_stats")
-    apparent = extract(["apparent_temperature_celsius", "apparent_temperature"], "apparent_temperature_stats")
+    temp = None
+    if features:
+        temps = [f["properties"].get("average_temperature") for f in features if f["properties"].get("average_temperature") is not None]
+        if temps:
+            temp = sum(temps) / len(temps)
+
+    if temp is None and "temperature_stats" in stats:
+        temp = stats["temperature_stats"].get("mean") or stats["temperature_stats"].get("average")
 
     return {
         "temp": temp,
-        "humidity": humidity,
-        "apparent_temp": apparent,
+        "humidity": None,
+        "apparent_temp": None,
     }

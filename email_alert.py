@@ -2,13 +2,13 @@ import os
 import smtplib
 from email.mime.text import MIMEText
 
-def send_alert_email(location, temp_c):
+def send_alert_email(location, temp_c, receiver=None):
     sender = os.getenv("GMAIL_USER")
     password = os.getenv("GMAIL_APP_PASSWORD")
-    receiver = os.getenv("ALERT_RECEIVER")
+    receiver = receiver or os.getenv("ALERT_RECEIVER")
 
     if not sender or not password or not receiver:
-        return False, "Email credentials missing in .env"
+        return False, "Email credentials missing"
 
     subject = f"🔥 Heat Alert: {location}"
     body = (
