@@ -5,7 +5,7 @@ import re
 import folium
 from streamlit_folium import st_folium
 from datetime import date, timedelta
-from temperature_api import get_temperature_data
+from temperature_api import get_temperature_data, get_heatmap_tiles
 from alert_logic import get_risk
 from email_alert import send_alert_email
 from route_planner import ask_ai_route
@@ -669,15 +669,11 @@ else:
         "📡 Allow browser location access. "
         "For live GPS, use Open-Meteo because FortyGuard does not provide arbitrary live-location weather."
     )
-    # streamlit_geolocation uses an internal component key. Do not render a
-    # second instance while Safe Walk is actively using Live Location.
     if st.session_state.get("safe_walk_active", False):
         live_location_data = None
     else:
         live_location_data = streamlit_geolocation()
     check = st.button("📍 Get Live Temperature", type="primary", use_container_width=True)
-
-time_formatted = f"{hour:02d}:00"
 
 time_formatted = f"{hour:02d}:00"
 
@@ -688,6 +684,7 @@ if "temp_source" not in st.session_state:
 if "temp_result" not in st.session_state:
     st.session_state.temp_result = {"temp": 41.3, "humidity": None, "apparent_temp": None}
     st.session_state.temp_location = ("Phoenix, AZ", 33.4484, -112.0740)
+    st.session_state.temp_query = {"date": str(DEFAULT_DATE), "time": "14:00"}
 
 if "ai_plan" not in st.session_state:
     st.session_state.ai_plan = None
@@ -717,7 +714,7 @@ if "show_heat_map" not in st.session_state:
 if "heat_map_data" not in st.session_state:
     st.session_state.heat_map_data = None
 
-# ---------- On button click, real API call ----------
+# ---------- On button click, real API call (FAST temp-only, no heat map) ----------
 if check:
     try:
         if location_mode == "Select from List":
@@ -775,6 +772,12 @@ if check:
         st.session_state.temp_result = data
         st.session_state.temp_location = (loc_display, lat, lon)
         st.session_state.temp_source = weather_source
+        st.session_state.temp_query = {"date": str(check_date), "time": time_formatted}
+
+        # New temp check invalidates any previously generated heat map,
+        # since it was for a different location/date/time.
+        st.session_state.show_heat_map = False
+        st.session_state.heat_map_data = None
 
     except Exception as e:
         st.error(f"Error fetching {weather_source} data: {e}")
@@ -784,73 +787,150 @@ if st.session_state.temp_result is not None:
     data = st.session_state.temp_result
     location_name_disp, lat, lon = st.session_state.temp_location
     temp = data["temp"]
-    risk, message = get_risk(temp)
     temp_source = st.session_state.get("temp_source", "FortyGuard")
-    risk_class = risk if risk in ["extreme", "high", "normal"] else "normal"
 
-    col_left, col_right = st.columns([1, 1.6])
-
-    with col_left:
-        sub1, sub2 = st.columns(2)
-        with sub1:
-            st.markdown(f"""
-            <div class="temp-card">
-                <div class="loc">📍 {location_name_disp}</div>
-                <p class="val">{temp:.1f}°C</p>
-                <div class="lbl">🌡️ Temperature • {temp_source}</div>
-            </div>
-            """, unsafe_allow_html=True)
-        with sub2:
-            st.markdown(f"""
-            <div class="risk-card {risk_class}">
-                <div class="title">🏠 Heat Risk Level</div>
-                <div class="level {risk_class}">⚠️ {risk.upper()}</div>
-                <div class="desc">{message}</div>
-            </div>
-            """, unsafe_allow_html=True)
-
-        st.markdown("<br>", unsafe_allow_html=True)
-        st.markdown(f"""
-        <div class="stat-card">
-            <div class="icon">🌡️</div>
-            <div class="lbl">Temperature</div>
-            <div class="val">{temp:.1f}°C</div>
-        </div>
-        """, unsafe_allow_html=True)
-alert_key = f"{location_name_disp}_{temp:.1f}"
-
-if temp is not None and temp > 30:
-    if st.session_state.get("last_alert_key") != alert_key:
-        sent, info = send_alert_email(location_name_disp, temp, receiver=st.session_state.user_email)
-        if sent:
-            st.session_state.last_alert_key = alert_key
-            st.markdown("""
-            <div class="email-banner">
-                📧 <b>Heat alert email sent successfully.</b><br>
-                <span style="color:#8fa3bf; font-size:13px;">Stay safe and take care!</span>
-            </div>
-            """, unsafe_allow_html=True)
-        else:
-            st.warning(f"Email not sent: {info}")
+    if temp is None:
+        st.warning(
+            f"⚠️ No temperature data available for **{location_name_disp}** "
+            f"from **{temp_source}** at the selected date/time. "
+            "Try a different date, time, location, or switch weather source."
+        )
     else:
-        st.markdown("""
-        <div class="email-banner">
-            📧 <b>Heat alert already sent for this check.</b><br>
-            <span style="color:#8fa3bf; font-size:13px;">Stay safe and take care!</span>
-        </div>
-        """, unsafe_allow_html=True)
+        risk, message = get_risk(temp)
+        risk_class = risk if risk in ["extreme", "high", "normal"] else "normal"
 
-    with col_right:
-        st.markdown('<div class="map-box"><h4>🗺️ Heat Map</h4>', unsafe_allow_html=True)
-        m = folium.Map(location=[lat, lon], zoom_start=11, tiles="CartoDB positron")
-        color_map = {"extreme": "red", "high": "orange", "normal": "green", "unknown": "gray"}
-        folium.CircleMarker(
-            [lat, lon], radius=16, color=color_map[risk], fill=True,
-            fill_color=color_map[risk], fill_opacity=0.7,
-            popup=f"{location_name_disp}: {temp:.1f}°C" if temp else location_name_disp,
-        ).add_to(m)
-        st_folium(m, width=None, height=380)
-        st.markdown('</div>', unsafe_allow_html=True)
+        col_left, col_right = st.columns([1, 1.6])
+
+        with col_left:
+            sub1, sub2 = st.columns(2)
+            with sub1:
+                st.markdown(f"""
+                <div class="temp-card">
+                    <div class="loc">📍 {location_name_disp}</div>
+                    <p class="val">{temp:.1f}°C</p>
+                    <div class="lbl">🌡️ Temperature • {temp_source}</div>
+                </div>
+                """, unsafe_allow_html=True)
+            with sub2:
+                st.markdown(f"""
+                <div class="risk-card {risk_class}">
+                    <div class="title">🏠 Heat Risk Level</div>
+                    <div class="level {risk_class}">⚠️ {risk.upper()}</div>
+                    <div class="desc">{message}</div>
+                </div>
+                """, unsafe_allow_html=True)
+
+            st.markdown("<br>", unsafe_allow_html=True)
+            st.markdown(f"""
+            <div class="stat-card">
+                <div class="icon">🌡️</div>
+                <div class="lbl">Temperature</div>
+                <div class="val">{temp:.1f}°C</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+        alert_key = f"{location_name_disp}_{temp:.1f}"
+
+        if temp > 30:
+            if st.session_state.get("last_alert_key") != alert_key:
+                sent, info = send_alert_email(location_name_disp, temp, receiver=st.session_state.user_email)
+                if sent:
+                    st.session_state.last_alert_key = alert_key
+                    st.markdown("""
+                    <div class="email-banner">
+                        📧 <b>Heat alert email sent successfully.</b><br>
+                        <span style="color:#8fa3bf; font-size:13px;">Stay safe and take care!</span>
+                    </div>
+                    """, unsafe_allow_html=True)
+                else:
+                    st.warning(f"Email not sent: {info}")
+            else:
+                st.markdown("""
+                <div class="email-banner">
+                    📧 <b>Heat alert already sent for this check.</b><br>
+                    <span style="color:#8fa3bf; font-size:13px;">Stay safe and take care!</span>
+                </div>
+                """, unsafe_allow_html=True)
+
+        # ---------------- Heat Map — separate & on-demand only ----------------
+        with col_right:
+            st.markdown('<div class="map-box"><h4>🗺️ Heat Map</h4>', unsafe_allow_html=True)
+
+            gen_map = st.button(
+                "🗺️ Generate Heat Map",
+                use_container_width=True,
+                help="Only fetches the visual heat map when clicked — separate from the fast temperature check above.",
+            )
+
+            if gen_map:
+                q = st.session_state.get("temp_query", {"date": str(check_date if 'check_date' in dir() else date.today()), "time": time_formatted})
+                if temp_source == "FortyGuard Data":
+                    with st.spinner("Generating FortyGuard heat map... this can take a while."):
+                        hm = get_heatmap_tiles(lat, lon, q["date"], q["time"], delta=0.01, granularity=60)
+                    st.session_state.heat_map_data = {
+                        "lat": lat, "lon": lon,
+                        "tiles": hm.get("tiles", []),
+                        "risk": risk, "temp": temp,
+                        "location": location_name_disp,
+                    }
+                    st.session_state.show_heat_map = True
+                else:
+                    # Open-Meteo is fast — just show a simple marker immediately.
+                    st.session_state.heat_map_data = {
+                        "lat": lat, "lon": lon,
+                        "tiles": [],
+                        "risk": risk, "temp": temp,
+                        "location": location_name_disp,
+                    }
+                    st.session_state.show_heat_map = True
+
+            if st.session_state.show_heat_map and st.session_state.heat_map_data:
+                hmd = st.session_state.heat_map_data
+                m_lat, m_lon = hmd["lat"], hmd["lon"]
+                m_risk = hmd["risk"]
+                m_temp = hmd["temp"]
+                m_loc = hmd["location"]
+                tiles = hmd.get("tiles", [])
+
+                color_map = {"extreme": "red", "high": "orange", "normal": "green", "unknown": "gray"}
+                m = folium.Map(location=[m_lat, m_lon], zoom_start=13, tiles="CartoDB positron")
+
+                if tiles:
+                    tile_temps = [t["temp"] for t in tiles]
+                    tmin, tmax = min(tile_temps), max(tile_temps)
+                    span = (tmax - tmin) or 1.0
+
+                    def tile_color(t):
+                        ratio = (t - tmin) / span
+                        if ratio < 0.34:
+                            return "green"
+                        elif ratio < 0.67:
+                            return "orange"
+                        else:
+                            return "red"
+
+                    for tile in tiles:
+                        folium.CircleMarker(
+                            [tile["lat"], tile["lon"]],
+                            radius=8,
+                            color=tile_color(tile["temp"]),
+                            fill=True,
+                            fill_color=tile_color(tile["temp"]),
+                            fill_opacity=0.6,
+                            popup=f"{tile['temp']:.1f}°C",
+                        ).add_to(m)
+                else:
+                    folium.CircleMarker(
+                        [m_lat, m_lon], radius=16, color=color_map.get(m_risk, "gray"), fill=True,
+                        fill_color=color_map.get(m_risk, "gray"), fill_opacity=0.7,
+                        popup=f"{m_loc}: {m_temp:.1f}°C",
+                    ).add_to(m)
+
+                st_folium(m, width=None, height=380)
+            else:
+                st.info("👆 Click 'Generate Heat Map' to fetch and render the visual heat map for this location.")
+
+            st.markdown('</div>', unsafe_allow_html=True)
 
 st.markdown("<br>", unsafe_allow_html=True)
 
@@ -945,7 +1025,7 @@ with col_b:
                         </div>
                         """, unsafe_allow_html=True)
 
-                if coolest:
+                if coolest and coolest.get("temp") is not None:
                     st.markdown(f"""
                     <div class="email-banner" style="text-align:center;">
                         ❄️ Coolest stop: <b>{coolest['city']}</b> at {coolest['temp']:.1f}°C
@@ -997,6 +1077,7 @@ with st.container(border=True):
             )
 
     interval_options = {
+        "Every 10 seconds": 10,
         "Every 30 seconds": 30,
         "Every 60 seconds": 60,
         "Every 2 minutes": 120,
@@ -1021,8 +1102,6 @@ with st.container(border=True):
     st.session_state.safe_walk_active = toggle
 
     if st.session_state.safe_walk_active:
-        # Streamlit reruns the app at this interval, which re-checks GPS/manual
-        # coordinates and fetches fresh weather.
         st.info(
             f"📡 Live monitoring active — updating {selected_interval_label.lower()} "
             f"using {safe_source}."
@@ -1060,7 +1139,6 @@ with st.container(border=True):
                 safe_lon = float(geo["lon"])
                 safe_display = geo["name"]
 
-            # Fresh weather request on every Streamlit refresh.
             safe_data = get_openmeteo_current(safe_lat, safe_lon)
 
             safe_temp = safe_data.get("temp")
@@ -1082,25 +1160,24 @@ with st.container(border=True):
             if safe_data.get("apparent_temp") is not None:
                 st.write(f"🥵 Feels like: **{safe_data['apparent_temp']:.1f}°C**")
 
-            if risk in ["high", "extreme"] and st.session_state.safe_walk_last_risk != risk:
-                sent, info = send_alert_email(
-                    f"Safe Walk - {safe_display}",
-                    safe_temp,
-                    receiver=st.session_state.user_email
-                )
-                if sent:
+            sent, info = send_alert_email(
+                f"Safe Walk - {safe_display}",
+                safe_temp,
+                receiver=st.session_state.user_email
+            )
+
+            if sent:
+                if risk in ["high", "extreme"]:
                     st.warning(
-                        f"⚠️ You've entered a {risk.upper()} heat zone! Alert email sent."
+                        f"⚠️ {risk.upper()} heat zone! Latest temperature emailed successfully."
                     )
                 else:
-                    st.warning(f"Heat risk detected, but email was not sent: {info}")
+                    st.success("📧 Latest Safe Walk temperature emailed successfully.")
+            else:
+                st.warning(f"Safe Walk temperature was checked, but email was not sent: {info}")
 
-                st.session_state.safe_walk_last_risk = risk
+            st.session_state.safe_walk_last_risk = risk
 
-            elif risk == "normal":
-                st.session_state.safe_walk_last_risk = None
-
-            # Small map for both live and manual modes.
             m = folium.Map(
                 location=[safe_lat, safe_lon],
                 zoom_start=12,
