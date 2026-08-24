@@ -1,4 +1,7 @@
 import streamlit as st
+import requests
+import os
+import re
 import folium
 from streamlit_folium import st_folium
 from datetime import date, timedelta
@@ -9,6 +12,228 @@ from route_planner import ask_ai_route
 from waypoints import US_CITIES
 from streamlit_geolocation import streamlit_geolocation
 from streamlit_autorefresh import st_autorefresh
+
+# ---------- Open-Meteo helpers ----------
+OPEN_METEO_FORECAST_URL = "https://api.open-meteo.com/v1/forecast"
+OPEN_METEO_GEOCODING_URL = "https://geocoding-api.open-meteo.com/v1/search"
+
+def get_openmeteo_current(lat, lon):
+    """Get current weather from Open-Meteo. No API key is required."""
+    response = requests.get(
+        OPEN_METEO_FORECAST_URL,
+        params={
+            "latitude": float(lat),
+            "longitude": float(lon),
+            "current": "temperature_2m,relative_humidity_2m,apparent_temperature,weather_code",
+            "timezone": "auto",
+        },
+        timeout=10,
+    )
+    response.raise_for_status()
+    payload = response.json()
+    current = payload.get("current", {})
+
+    if current.get("temperature_2m") is None:
+        raise RuntimeError("Open-Meteo returned no current temperature.")
+
+    return {
+        "temp": current.get("temperature_2m"),
+        "humidity": current.get("relative_humidity_2m"),
+        "apparent_temp": current.get("apparent_temperature"),
+        "weather_code": current.get("weather_code"),
+        "city": "",
+        "country": "",
+        "source": "Open-Meteo",
+    }
+
+def get_openmeteo_forecast(lat, lon, target_date=None):
+    """Get the selected day's max temperature from Open-Meteo forecast."""
+    target = target_date or date.today()
+    response = requests.get(
+        OPEN_METEO_FORECAST_URL,
+        params={
+            "latitude": float(lat),
+            "longitude": float(lon),
+            "daily": "temperature_2m_max,temperature_2m_min,apparent_temperature_max",
+            "forecast_days": 16,
+            "timezone": "auto",
+        },
+        timeout=10,
+    )
+    response.raise_for_status()
+    payload = response.json()
+    daily = payload.get("daily", {})
+    dates = daily.get("time", [])
+
+    target_str = str(target)
+    if target_str not in dates:
+        raise RuntimeError(
+            f"Open-Meteo forecast does not contain {target_str}. "
+            "Choose today or a near-term date."
+        )
+
+    idx = dates.index(target_str)
+    temps = daily.get("temperature_2m_max", [])
+    mins = daily.get("temperature_2m_min", [])
+    feels = daily.get("apparent_temperature_max", [])
+
+    return {
+        "temp": temps[idx] if idx < len(temps) else None,
+        "min_temp": mins[idx] if idx < len(mins) else None,
+        "apparent_temp": feels[idx] if idx < len(feels) else None,
+        "humidity": None,
+        "date": target_str,
+        "source": "Open-Meteo",
+    }
+
+def geocode_openmeteo(location_query):
+    """Convert a typed city/place into coordinates using Open-Meteo Geocoding."""
+    query = location_query.strip()
+    if not query:
+        return None
+
+    response = requests.get(
+        OPEN_METEO_GEOCODING_URL,
+        params={
+            "name": query,
+            "count": 1,
+            "language": "en",
+            "format": "json",
+        },
+        timeout=10,
+    )
+    response.raise_for_status()
+    results = response.json().get("results", [])
+
+    if not results:
+        return None
+
+    item = results[0]
+    display = item.get("name", query)
+    if item.get("admin1"):
+        display += f", {item['admin1']}"
+    if item.get("country"):
+        display += f", {item['country']}"
+
+    return {
+        "lat": item["latitude"],
+        "lon": item["longitude"],
+        "name": display,
+    }
+
+def get_openmeteo_city(city_name, target_date=None):
+    location = geocode_openmeteo(city_name)
+    if not location:
+        return None
+
+    target = target_date or date.today()
+    weather = (
+        get_openmeteo_current(location["lat"], location["lon"])
+        if target == date.today()
+        else get_openmeteo_forecast(location["lat"], location["lon"], target)
+    )
+
+    return {
+        **weather,
+        "city": location["name"],
+        "lat": location["lat"],
+        "lon": location["lon"],
+    }
+
+def extract_openmeteo_cities(question):
+    """Extract simple route city names such as 'from Lahore to Islamabad'."""
+    q = " ".join(question.strip().split())
+    candidates = []
+
+    m = re.search(r"\bfrom\s+(.+?)\s+to\s+(.+?)(?:,|\.|$)", q, re.I)
+    if m:
+        candidates.extend([m.group(1).strip(), m.group(2).strip()])
+
+    if not candidates:
+        m = re.search(
+            r"\b([A-Za-z][A-Za-z .'-]{1,40}?)\s+to\s+([A-Za-z][A-Za-z .'-]{1,40})(?:,|\.|$)",
+            q, re.I
+        )
+        if m:
+            candidates.extend([m.group(1).strip(), m.group(2).strip()])
+
+    if not candidates:
+        m = re.search(r"\b(?:in|at|near)\s+([A-Za-z][A-Za-z .'-]{1,40})(?:\?|,|\.|$)", q, re.I)
+        if m:
+            candidates.append(m.group(1).strip())
+
+    cleaned=[]
+    for item in candidates:
+        item = re.sub(
+            r"\b(suggest|recommend|route|with|low|lower|temperature|weather|today|tomorrow)\b",
+            " ", item, flags=re.I
+        )
+        item = re.sub(r"\s+", " ", item).strip(" ,.")
+        if item:
+            cleaned.append(item)
+
+    result=[]
+    seen=set()
+    for item in cleaned:
+        key=item.lower()
+        if key not in seen:
+            seen.add(key)
+            result.append(item)
+    return result[:8]
+
+def ask_ai_with_openmeteo(question, mentioned_cities, travel_date):
+    requested = date.fromisoformat(travel_date)
+    today = date.today()
+    q = question.lower()
+
+    if "tomorrow" in q:
+        target = today + timedelta(days=1)
+    elif requested < today:
+        target = today
+    else:
+        target = requested
+
+    if target > today + timedelta(days=15):
+        target = today
+
+    cities = mentioned_cities[:8] if mentioned_cities else extract_openmeteo_cities(question)
+    if not cities:
+        return (
+            "Please mention city names, for example: "
+            "'From Gujranwala to Lahore, suggest a cooler route.'",
+            None,
+        )
+
+    route=[]
+    errors=[]
+    for city in cities:
+        try:
+            item=get_openmeteo_city(city, target)
+            if item and item.get("temp") is not None:
+                route.append({
+                    "city": item["city"].split(",")[0],
+                    "temp": float(item["temp"]),
+                    "lat": item["lat"],
+                    "lon": item["lon"],
+                })
+        except Exception as exc:
+            errors.append(f"{city}: {exc}")
+
+    if not route:
+        detail = errors[0] if errors else "No weather result was returned."
+        return f"Open-Meteo could not return weather: {detail}", None
+
+    route_sorted=sorted(route, key=lambda x: x["temp"])
+    coolest=route_sorted[0]
+    kind="forecast" if target != today else "current"
+
+    answer=(
+        f"Using Open-Meteo {kind} data, the coolest checked stop is "
+        f"{coolest['city']} at {coolest['temp']:.1f}°C. "
+        f"For a heat-safe route, prefer the lower-temperature stops."
+    )
+    return answer, {"route": route, "coolest_stop": coolest}
+
 st.set_page_config(page_title="Heat Guardian", page_icon="🌡️", layout="wide")
 # ---------- Sign-in gate ----------
 # ---------- Sign-in gate ----------
@@ -393,14 +618,22 @@ with h2:
     st.markdown('<div style="text-align:right; padding-top:15px;"><span class="live-badge">● LIVE DATA</span></div>', unsafe_allow_html=True)
 
 # ---------- Controls ----------
+weather_source = st.radio(
+    "🌐 Weather Data Source",
+    ["FortyGuard Data", "Open-Meteo"],
+    horizontal=True,
+    key="main_weather_source",
+)
+
 location_mode = st.radio(
     "📍 Location Input Method",
-    ["Select from List", "Manual (City + Lat/Lon)"],
-    horizontal=True
+    ["Select from List", "Manual (City + Lat/Lon)", "📡 Live Location"],
+    horizontal=True,
 )
 
 manual_lat = None
 manual_lon = None
+live_location_data = None
 
 if location_mode == "Select from List":
     c1, c2, c3, c4 = st.columns([2, 1.5, 2, 1.5])
@@ -413,26 +646,51 @@ if location_mode == "Select from List":
     with c4:
         st.write("")
         check = st.button("🌡️ Check Temperature", type="primary", use_container_width=True)
-else:
+
+elif location_mode == "Manual (City + Lat/Lon)":
     c1, c2, c3, c4, c5 = st.columns([2, 1, 1, 1.3, 1.3])
     with c1:
-        location_name = st.text_input("📍 City Name (manual)", placeholder="e.g. Multan, PK")
+        location_name = st.text_input("📍 City Name", placeholder="e.g. Gujranwala, Pakistan")
     with c2:
-        manual_lat = st.number_input("🌐 Latitude", value=33.4484, format="%.4f")
+        manual_lat = st.number_input("🌐 Latitude", value=32.1617, format="%.4f")
     with c3:
-        manual_lon = st.number_input("🌐 Longitude", value=-112.0740, format="%.4f")
+        manual_lon = st.number_input("🌐 Longitude", value=74.1883, format="%.4f")
     with c4:
         check_date = st.date_input("📅 Date", value=DEFAULT_DATE)
     with c5:
         hour = st.slider("🕐 Hour", 0, 23, 14)
     check = st.button("🌡️ Check Temperature", type="primary", use_container_width=True)
 
+else:
+    location_name = "Live Location"
+    check_date = date.today()
+    hour = 14
+    st.info(
+        "📡 Allow browser location access. "
+        "For live GPS, use Open-Meteo because FortyGuard does not provide arbitrary live-location weather."
+    )
+    # streamlit_geolocation uses an internal component key. Do not render a
+    # second instance while Safe Walk is actively using Live Location.
+    if st.session_state.get("safe_walk_active", False):
+        live_location_data = None
+    else:
+        live_location_data = streamlit_geolocation()
+    check = st.button("📍 Get Live Temperature", type="primary", use_container_width=True)
+
+time_formatted = f"{hour:02d}:00"
+
 time_formatted = f"{hour:02d}:00"
 
 # ---------- Session state defaults (FAKE static data — no API call on load) ----------
+if "temp_source" not in st.session_state:
+    st.session_state.temp_source = "FortyGuard"
+
 if "temp_result" not in st.session_state:
     st.session_state.temp_result = {"temp": 41.3, "humidity": None, "apparent_temp": None}
     st.session_state.temp_location = ("Phoenix, AZ", 33.4484, -112.0740)
+
+if "ai_plan" not in st.session_state:
+    st.session_state.ai_plan = None
 
 if "ai_answer" not in st.session_state:
     st.session_state.ai_answer = (
@@ -461,26 +719,65 @@ if "heat_map_data" not in st.session_state:
 
 # ---------- On button click, real API call ----------
 if check:
-    if location_mode == "Select from List":
-        lat, lon = LOCATIONS[location_name]
-        loc_display = location_name
-    else:
-        if not location_name:
-            st.error("Please enter a city name.")
-            st.stop()
-        if manual_lat is None or manual_lon is None:
-            st.error("Please enter valid latitude and longitude.")
-            st.stop()
-        lat, lon = manual_lat, manual_lon
-        loc_display = location_name
+    try:
+        if location_mode == "Select from List":
+            lat, lon = LOCATIONS[location_name]
+            loc_display = location_name
 
-    with st.spinner("Fetching temperature data this may take 8-10 seconds..."):
-        try:
-            data = get_temperature_data(lat, lon, str(check_date), time_formatted)
-            st.session_state.temp_result = data
-            st.session_state.temp_location = (loc_display, lat, lon)
-        except Exception as e:
-            st.error(f"Error fetching data: {e}")
+            if weather_source == "FortyGuard Data":
+                with st.spinner("Fetching FortyGuard temperature data..."):
+                    data = get_temperature_data(lat, lon, str(check_date), time_formatted)
+            else:
+                with st.spinner("Fetching Open-Meteo temperature data..."):
+                    if check_date == date.today():
+                        data = get_openmeteo_current(lat, lon)
+                    else:
+                        data = get_openmeteo_forecast(lat, lon, check_date)
+
+        elif location_mode == "Manual (City + Lat/Lon)":
+            if not location_name:
+                st.error("Please enter a city name.")
+                st.stop()
+
+            lat, lon = manual_lat, manual_lon
+            loc_display = location_name
+
+            if weather_source == "FortyGuard Data":
+                with st.spinner("Fetching FortyGuard temperature data..."):
+                    data = get_temperature_data(lat, lon, str(check_date), time_formatted)
+            else:
+                with st.spinner("Fetching Open-Meteo temperature data..."):
+                    if check_date == date.today():
+                        data = get_openmeteo_current(lat, lon)
+                    else:
+                        data = get_openmeteo_forecast(lat, lon, check_date)
+
+        else:
+            if weather_source != "Open-Meteo":
+                st.error(
+                    "FortyGuard does not provide arbitrary live GPS temperature. "
+                    "Select Open-Meteo for Live Location."
+                )
+                st.stop()
+
+            if not live_location_data or live_location_data.get("latitude") is None:
+                st.error("Live location is not available. Allow browser location permission and try again.")
+                st.stop()
+
+            lat = live_location_data["latitude"]
+            lon = live_location_data["longitude"]
+
+            with st.spinner("Fetching live temperature from Open-Meteo..."):
+                data = get_openmeteo_current(lat, lon)
+
+            loc_display = "Live Location"
+
+        st.session_state.temp_result = data
+        st.session_state.temp_location = (loc_display, lat, lon)
+        st.session_state.temp_source = weather_source
+
+    except Exception as e:
+        st.error(f"Error fetching {weather_source} data: {e}")
 
 # ---------- Display temperature result ----------
 if st.session_state.temp_result is not None:
@@ -488,6 +785,7 @@ if st.session_state.temp_result is not None:
     location_name_disp, lat, lon = st.session_state.temp_location
     temp = data["temp"]
     risk, message = get_risk(temp)
+    temp_source = st.session_state.get("temp_source", "FortyGuard")
     risk_class = risk if risk in ["extreme", "high", "normal"] else "normal"
 
     col_left, col_right = st.columns([1, 1.6])
@@ -499,7 +797,7 @@ if st.session_state.temp_result is not None:
             <div class="temp-card">
                 <div class="loc">📍 {location_name_disp}</div>
                 <p class="val">{temp:.1f}°C</p>
-                <div class="lbl">🌡️ Temperature</div>
+                <div class="lbl">🌡️ Temperature • {temp_source}</div>
             </div>
             """, unsafe_allow_html=True)
         with sub2:
@@ -563,36 +861,72 @@ col_a, col_b = st.columns([1, 1.3])
 with col_a:
     with st.container(border=True):
         st.subheader("✨ Ask Heat Guardian AI")
-        st.caption("Get intelligent route recommendations based on temperature data")
+        st.caption("Choose the weather source for your AI route recommendation.")
+
+        ai_source = st.radio(
+            "🌐 AI Weather Data Source",
+            ["FortyGuard Data", "Open-Meteo Live"],
+            horizontal=True,
+            key="ai_weather_source",
+        )
 
         user_question = st.text_input(
             "Your travel question",
             value="I need to go from Phoenix to New York, suggest a route with low temperature"
         )
-        ai_date = st.date_input("Date for route check", value=DEFAULT_DATE, key="ai_date_input")
+        ai_date = st.date_input(
+            "Date for route check",
+            value=DEFAULT_DATE,
+            key="ai_date_input"
+        )
+        st.caption(
+            "Open-Meteo is best for live/today/tomorrow and near-term forecast checks."
+            if ai_source == "Open-Meteo Live"
+            else "FortyGuard uses the project's existing temperature data."
+        )
         ask = st.button("✨ Ask Heat Guardian AI", type="primary", use_container_width=True)
 
 if ask:
     if user_question:
         mentioned = [c for c in US_CITIES if c.lower() in user_question.lower()]
-        with st.spinner("Checking temperatures... this may take 10-20 seconds"):
+        with st.spinner(
+            "Checking Open-Meteo live/forecast data..."
+            if ai_source == "Open-Meteo Live"
+            else "Checking FortyGuard temperatures..."
+        ):
             try:
-                from route_planner import ask_ai
-                answer, result = ask_ai(user_question, mentioned, travel_date=str(ai_date))
+                if ai_source == "Open-Meteo Live":
+                    answer, result = ask_ai_with_openmeteo(
+                        user_question,
+                        mentioned,
+                        travel_date=str(ai_date)
+                    )
+                else:
+                    from route_planner import ask_ai
+                    answer, result = ask_ai(
+                        user_question,
+                        mentioned,
+                        travel_date=str(ai_date)
+                    )
+
                 st.session_state.ai_answer = answer
                 st.session_state.ai_result = result
+
+                if result:
+                    st.session_state.ai_plan = result
             except Exception as e:
                 st.session_state.ai_answer = f"Error: {e}"
                 st.session_state.ai_result = None
     else:
         st.warning("Please type a question first.")
+
 with col_b:
     if st.session_state.ai_answer:
         with st.container(border=True):
             st.markdown("#### 🤖 AI Recommendation")
             st.write(st.session_state.ai_answer)
 
-            if st.session_state.ai_plan:
+            if st.session_state.get("ai_plan"):
                 st.markdown("##### 🗺️ Route Temperature Analysis")
                 route = st.session_state.ai_plan["route"]
                 coolest = st.session_state.ai_plan["coolest_stop"]
@@ -618,61 +952,178 @@ with col_b:
                     </div>
                     """, unsafe_allow_html=True)
 
-           
-        st.markdown('</div>', unsafe_allow_html=True)
-        
 st.markdown("---")
 
 with st.container(border=True):
     st.subheader("🚶 Safe Walk Mode")
-    st.caption("Enable to continuously monitor your live location and get instant alert only for US states")
-    st.caption("Disclaimer: Currently not available because Fortyguard API does not support live location monitoring.")
+    st.caption(
+        "Monitor heat risk continuously using live GPS or a typed location with Open-Meteo."
+    )
+
+    safe_source = "Open-Meteo"
+
+    safe_location_mode = st.radio(
+        "📍 Safe Walk Location",
+        ["📡 Live Location", "⌨️ Manual Location"],
+        horizontal=True,
+        key="safe_walk_location_mode",
+    )
+
+    safe_manual_city = ""
+    safe_manual_lat = None
+    safe_manual_lon = None
+
+    if safe_location_mode == "⌨️ Manual Location":
+        sc1, sc2, sc3 = st.columns([2, 1, 1])
+        with sc1:
+            safe_manual_city = st.text_input(
+                "📍 Type City / Location",
+                placeholder="e.g. Gujranwala, Pakistan",
+                key="safe_manual_city",
+            )
+        with sc2:
+            safe_manual_lat = st.number_input(
+                "🌐 Latitude",
+                value=32.1617,
+                format="%.4f",
+                key="safe_manual_lat",
+            )
+        with sc3:
+            safe_manual_lon = st.number_input(
+                "🌐 Longitude",
+                value=74.1883,
+                format="%.4f",
+                key="safe_manual_lon",
+            )
 
     interval_options = {
         "Every 30 seconds": 30,
-        "Every 1 minute": 60,
+        "Every 60 seconds": 60,
+        "Every 2 minutes": 120,
         "Every 5 minutes": 300,
+        "Every 10 minutes": 600,
         "Every 15 minutes": 900,
         "Every 30 minutes": 1800,
         "Every 1 hour": 3600,
     }
-    selected_interval_label = st.selectbox("⏱️ Check location every:", list(interval_options.keys()))
+    selected_interval_label = st.selectbox(
+        "⏱️ Update location/weather every:",
+        list(interval_options.keys()),
+        key="safe_walk_interval",
+    )
     selected_interval_seconds = interval_options[selected_interval_label]
 
-    toggle = st.toggle("Enable Safe Walk Mode", value=st.session_state.safe_walk_active)
+    toggle = st.toggle(
+        "Enable Safe Walk Mode",
+        value=st.session_state.safe_walk_active,
+        key="safe_walk_toggle",
+    )
     st.session_state.safe_walk_active = toggle
 
     if st.session_state.safe_walk_active:
-        st.info(f"📡 Live monitoring active — checking your location {selected_interval_label.lower()}")
-        st_autorefresh(interval=selected_interval_seconds * 1000, key="safe_walk_refresh")
+        # Streamlit reruns the app at this interval, which re-checks GPS/manual
+        # coordinates and fetches fresh weather.
+        st.info(
+            f"📡 Live monitoring active — updating {selected_interval_label.lower()} "
+            f"using {safe_source}."
+        )
+        st_autorefresh(
+            interval=selected_interval_seconds * 1000,
+            key="safe_walk_refresh"
+        )
 
-        location_data = streamlit_geolocation()
+        try:
+            if safe_location_mode == "📡 Live Location":
+                location_data = streamlit_geolocation()
 
-        if location_data and location_data.get("latitude") is not None:
-            live_lat = location_data["latitude"]
-            live_lon = location_data["longitude"]
+                if not location_data or location_data.get("latitude") is None:
+                    st.info(
+                        "Waiting for location permission — please allow location access "
+                        "in your browser."
+                    )
+                    st.stop()
 
-            with st.spinner("Checking current heat risk..."):
-                try:
-                    data = get_temperature_data(live_lat, live_lon, str(DEFAULT_DATE), "14:00")
-                    temp = data["temp"]
-                    if temp is not None:
-                        risk, message = get_risk(temp)
+                safe_lat = float(location_data["latitude"])
+                safe_lon = float(location_data["longitude"])
+                safe_display = f"Live Location ({safe_lat:.4f}, {safe_lon:.4f})"
 
-                        st.write(f"📍 Current location: ({live_lat:.3f}, {live_lon:.3f})")
-                        st.write(f"🌡️ Temperature: {temp:.1f}°C — Risk: **{risk.upper()}**")
+            else:
+                if not safe_manual_city.strip():
+                    st.warning("Type a city/location for Manual Location.")
+                    st.stop()
 
-                        if risk in ["high", "extreme"] and st.session_state.safe_walk_last_risk != risk:
-                            sent, info = send_alert_email(f"Live location ({live_lat:.2f}, {live_lon:.2f})", temp, receiver=st.session_state.user_email)
-                            if sent:
-                                st.warning(f"⚠️ You've entered a {risk.upper()} heat zone! Alert email sent.")
-                            st.session_state.safe_walk_last_risk = risk
-                        elif risk == "normal":
-                            st.session_state.safe_walk_last_risk = None
-                    else:
-                        st.warning("No temperature data available for this location (may be outside U.S. coverage).")
-                except Exception as e:
-                    st.error(f"Error checking location: {e}")
-        else:
-            st.info("Waiting for location permission — please allow location access in your browser.")
+                geo = geocode_openmeteo(safe_manual_city)
+                if not geo:
+                    st.error("Location not found. Try 'Gujranwala, Pakistan' or another clear city name.")
+                    st.stop()
+                safe_lat = float(geo["lat"])
+                safe_lon = float(geo["lon"])
+                safe_display = geo["name"]
+
+            # Fresh weather request on every Streamlit refresh.
+            safe_data = get_openmeteo_current(safe_lat, safe_lon)
+
+            safe_temp = safe_data.get("temp")
+            if safe_temp is None:
+                st.warning("No temperature data returned for this location.")
+                st.stop()
+
+            risk, message = get_risk(safe_temp)
+
+            st.write(f"📍 Location: **{safe_display}**")
+            st.write(
+                f"🌡️ Temperature: **{safe_temp:.1f}°C** — "
+                f"Risk: **{risk.upper()}** — Source: **{safe_source}**"
+            )
+
+            if safe_data.get("humidity") is not None:
+                st.write(f"💧 Humidity: **{safe_data['humidity']}%**")
+
+            if safe_data.get("apparent_temp") is not None:
+                st.write(f"🥵 Feels like: **{safe_data['apparent_temp']:.1f}°C**")
+
+            if risk in ["high", "extreme"] and st.session_state.safe_walk_last_risk != risk:
+                sent, info = send_alert_email(
+                    f"Safe Walk - {safe_display}",
+                    safe_temp,
+                    receiver=st.session_state.user_email
+                )
+                if sent:
+                    st.warning(
+                        f"⚠️ You've entered a {risk.upper()} heat zone! Alert email sent."
+                    )
+                else:
+                    st.warning(f"Heat risk detected, but email was not sent: {info}")
+
+                st.session_state.safe_walk_last_risk = risk
+
+            elif risk == "normal":
+                st.session_state.safe_walk_last_risk = None
+
+            # Small map for both live and manual modes.
+            m = folium.Map(
+                location=[safe_lat, safe_lon],
+                zoom_start=12,
+                tiles="CartoDB positron"
+            )
+            color_map = {
+                "extreme": "red",
+                "high": "orange",
+                "normal": "green",
+                "unknown": "gray"
+            }
+            folium.CircleMarker(
+                [safe_lat, safe_lon],
+                radius=12,
+                color=color_map.get(risk, "gray"),
+                fill=True,
+                fill_color=color_map.get(risk, "gray"),
+                fill_opacity=0.7,
+                popup=f"{safe_display}: {safe_temp:.1f}°C",
+            ).add_to(m)
+            st_folium(m, width=None, height=300)
+
+        except Exception as e:
+            st.error(f"Safe Walk {safe_source} error: {e}")
+
 st.markdown("<br><div style='text-align:center; color:#5a6b85; font-size:12px;'>Heat Guardian • Intelligent Heat Risk Monitoring • Powered by FortyGuard • Created by Dawood </div>", unsafe_allow_html=True)
