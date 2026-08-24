@@ -1,17 +1,15 @@
 from dotenv import load_dotenv
+from fortyguard import FortyGuardClient
 
 load_dotenv()
 
-from fortyguard import FortyGuardClient
-
 client = FortyGuardClient()
 
-# Placeholder threshold value required by the API.
 DEFAULT_TEMP_THRESHOLD = 35.0
 
 
 def _extract_value(params, keys):
-    """Return the first value found in params for any of the given keys."""
+    """Get the first available value from the given parameter keys."""
     for key in keys:
         values = params.get(key)
 
@@ -22,89 +20,76 @@ def _extract_value(params, keys):
 
 
 def _extract_temp_from_parameters(params):
-    """
-    FortyGuard Environmental Parameters response does not currently
-    return a plain temperature_celsius field.
+    """Extract temperature from FortyGuard response."""
 
-    Therefore, use apparent_temperature_celsius as the fallback
-    temperature value for the heat-risk application.
-    """
-
-    preferred = [
+    preferred_keys = [
         "temperature_celsius",
         "air_temperature_celsius",
         "ambient_temperature_celsius",
         "2m_temperature_celsius",
     ]
 
-    # First try actual temperature fields if they ever become available.
-    temp = _extract_value(params, preferred)
+    # Try actual temperature first
+    temp = _extract_value(params, preferred_keys)
 
     if temp is not None:
         return temp
 
-    # Fallback to apparent/feels-like temperature.
-    apparent_temp = _extract_value(
+    # Fallback to apparent temperature
+    temp = _extract_value(
         params,
         ["apparent_temperature_celsius"]
     )
 
-    if apparent_temp is not None:
-        return apparent_temp
+    if temp is not None:
+        return temp
 
-    # Final fallback: search for another temperature-like key.
+    # Final temperature-like fallback
     for key, values in params.items():
-        lower = key.lower()
+
+        if not values:
+            continue
+
+        key_lower = key.lower()
 
         if (
-            "temp" in lower
-            and not any(
-                x in lower
-                for x in (
-                    "apparent",
-                    "heat_index",
-                    "wet_bulb",
-                )
-            )
+            "temp" in key_lower
+            and "apparent" not in key_lower
+            and "heat_index" not in key_lower
+            and "wet_bulb" not in key_lower
         ):
-            if values:
-                return values[0]
+            return values[0]
 
     return None
 
 
 def get_temperature_data(lat, lon, date, time):
     """
-    FAST path — single-point Environmental Parameters lookup.
-
-    Used by the main "Check Temperature" button and AI route planner.
-
-    FortyGuard currently returns:
-        - apparent_temperature_celsius
-        - heat_index_celsius
-        - relative_humidity_percent
-        - wet_bulb_temperature_celsius
-
-    Since raw temperature is not returned, apparent temperature
-    is used as the fallback value for `temp`.
+    Get temperature/environmental data directly from FortyGuard.
     """
 
     try:
+
         response = client.environmental_parameters(
             latitude=float(lat),
             longitude=float(lon),
+
             temperature=DEFAULT_TEMP_THRESHOLD,
+
             start_date=date,
             start_time=time,
+
             end_date=date,
             end_time=time,
+
             filter_type=1,
         )
 
     except Exception as e:
+
         print(
-            f"[ERROR] Environmental Parameters call failed "
-            f"for ({lat},{lon}): {e}"
+            f"[ERROR] FortyGuard request failed "
+            f"({lat}, {lon}): {e}"
         )
 
         return {
@@ -115,13 +100,14 @@ def get_temperature_data(lat, lon, date, time):
         }
 
     result = response.get("result", {})
+
     locations = result.get("locations", [])
 
     if not locations:
+
         print(
-            f"[DEBUG][envparams] {lat},{lon} -> "
-            f"no locations returned. "
-            f"metadata={result.get('metadata', {})}"
+            f"[DEBUG] FortyGuard returned no location "
+            f"for ({lat}, {lon})"
         )
 
         return {
@@ -134,13 +120,10 @@ def get_temperature_data(lat, lon, date, time):
     params = locations[0].get("parameters", {})
 
     print(
-        f"[DEBUG][envparams] {lat},{lon} -> "
-        f"parameter keys: {list(params.keys())}"
+        f"[DEBUG] FortyGuard parameters "
+        f"({lat}, {lon}): {list(params.keys())}"
     )
 
-    # Temperature:
-    # Raw temperature is unavailable, so this falls back
-    # to apparent_temperature_celsius.
     temp = _extract_temp_from_parameters(params)
 
     humidity = _extract_value(
@@ -159,11 +142,11 @@ def get_temperature_data(lat, lon, date, time):
     )
 
     print(
-        f"[DEBUG][envparams] {lat},{lon} -> "
+        f"[DEBUG] ({lat}, {lon}) "
         f"temp={temp}, "
-        f"apparent_temp={apparent_temp}, "
-        f"heat_index={heat_index}, "
-        f"humidity={humidity}"
+        f"humidity={humidity}, "
+        f"apparent={apparent_temp}, "
+        f"heat_index={heat_index}"
     )
 
     return {
@@ -175,14 +158,19 @@ def get_temperature_data(lat, lon, date, time):
 
 
 def _build_polygon(lat, lon, delta):
+
     return {
         "type": "FeatureCollection",
+
         "features": [
             {
                 "type": "Feature",
+
                 "properties": {},
+
                 "geometry": {
                     "type": "Polygon",
+
                     "coordinates": [
                         [
                             [lon - delta, lat - delta],
@@ -207,25 +195,34 @@ def get_heatmap_tiles(
     granularity=60,
 ):
     """
-    SLOW / heavy path — used only when the user explicitly
-    requests a visual heat map.
+    Heavy FortyGuard heatmap request.
+    Only call this when the user requests heatmap.
     """
 
-    polygon = _build_polygon(lat, lon, delta)
+    polygon = _build_polygon(
+        lat,
+        lon,
+        delta
+    )
 
     try:
+
         response = client.create_heatmap(
             polygon_aoi=polygon,
+
             start_date=date,
             start_time=time,
+
             filter_type=1,
+
             granularity=granularity,
         )
 
     except Exception as e:
+
         print(
-            f"[ERROR] Heatmap API call failed "
-            f"for ({lat},{lon}): {e}"
+            f"[ERROR] FortyGuard heatmap failed "
+            f"({lat}, {lon}): {e}"
         )
 
         return {
@@ -233,48 +230,68 @@ def get_heatmap_tiles(
             "tiles": [],
         }
 
-    result = response.get("result", {})
-
-    stats = result.get("stats_data", {})
-
-    features = result.get(
-        "map_data",
+    result = response.get(
+        "result",
         {}
-    ).get(
-        "features",
-        []
     )
 
-    print(
-        f"[DEBUG][heatmap] {lat},{lon} -> "
-        f"features count: {len(features)}, "
-        f"stats keys: {list(stats.keys())}"
+    stats = result.get(
+        "stats_data",
+        {}
+    )
+
+    map_data = result.get(
+        "map_data",
+        {}
+    )
+
+    features = map_data.get(
+        "features",
+        []
     )
 
     tiles = []
 
     for feature in features:
 
-        props = feature.get("properties", {})
+        properties = feature.get(
+            "properties",
+            {}
+        )
 
-        temp = props.get("average_temperature")
+        temp = properties.get(
+            "average_temperature"
+        )
 
         if temp is None:
             continue
 
-        geom = feature.get("geometry", {})
+        geometry = feature.get(
+            "geometry",
+            {}
+        )
 
-        coords = geom.get("coordinates")
+        coords = geometry.get(
+            "coordinates"
+        )
 
         centroid = None
 
         try:
-            if geom.get("type") == "Polygon" and coords:
+
+            if geometry.get("type") == "Polygon" and coords:
 
                 ring = coords[0]
 
-                lons = [point[0] for point in ring]
-                lats = [point[1] for point in ring]
+                lons = [
+                    point[0]
+                    for point in ring
+                ]
+
+                lats = [
+                    point[1]
+                    for point in ring
+                ]
 
                 centroid = (
                     sum(lats) / len(lats),
@@ -282,6 +299,7 @@ def get_heatmap_tiles(
                 )
 
         except Exception:
+
             centroid = None
 
         if centroid:
@@ -296,24 +314,32 @@ def get_heatmap_tiles(
 
     mean_temp = None
 
-    if features:
+    temps = []
 
-        temps = [
-            feature["properties"].get(
-                "average_temperature"
-            )
-            for feature in features
-            if feature["properties"].get(
-                "average_temperature"
-            ) is not None
+    for feature in features:
+
+        temp = feature.get(
+            "properties",
+            {}
+        ).get(
+            "average_temperature"
+        )
+
+        if temp is not None:
+            temps.append(temp)
+
+    if temps:
+
+        mean_temp = sum(temps) / len(temps)
+
+    if (
+        mean_temp is None
+        and "temperature_stats" in stats
+    ):
+
+        temperature_stats = stats[
+            "temperature_stats"
         ]
-
-        if temps:
-            mean_temp = sum(temps) / len(temps)
-
-    if mean_temp is None and "temperature_stats" in stats:
-
-        temperature_stats = stats["temperature_stats"]
 
         mean_temp = (
             temperature_stats.get("mean")
