@@ -8,7 +8,7 @@ Built for **FortyGuard Hackathon '26** — Track 6: Agentic AI (primary), with T
  
  **LinkedIn:** [linkedin.com/in/dawood-ahmad-b16bba378](https://www.linkedin.com/in/dawood-ahmad-b16bba378)
  
- **Live App Demo:** [fortygurad-heat-guardian.streamlit.app(https://heatguardian-hhw5fzxqbzthrjt5qujn9f.streamlit.app/)
+ **Live App Demo:** https://heatguardian-hhw5fzxqbzthrjt5qujn9f.streamlit.app/
 
 <p align="center">
   <img src="docs/screenshots/dashboard.png.png" alt="Heat Guardian dashboard" width="1000"/>
