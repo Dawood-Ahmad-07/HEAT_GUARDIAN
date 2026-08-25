@@ -75,8 +75,8 @@ Heat Guardian doesn't just display a temperature — it **watches, reasons, and 
 - One **decides — every single time** — whether a new alert is genuinely warranted or just noise.
 
 <p align="center">
-  <img src="docs/screenshots/signin.png.jpeg" alt="Sign in screen" width="400"/>
-  <img src="docs/screenshots/risk_card.png.png" alt="Risk level card" width="500"/>
+  <img src="docs/screenshots/signin.png.jpeg" alt="Sign in screen" width="300"/>
+  <img src="docs/screenshots/risk_card.png.png" alt="Risk level card" width="400"/>
 </p>
 
 ---
