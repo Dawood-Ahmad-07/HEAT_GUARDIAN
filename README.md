@@ -12,6 +12,9 @@ Note: If the app stuck at any place please refresh it and try again because i de
  
  **Live App Demo:** https://heatguardian-hhw5fzxqbzthrjt5qujn9f.streamlit.app/
 
+**YouTube Video link**
+https://youtu.be/nnEvlIDI4Cw?si=5XwNE8LkPKs3uZHR
+
 <p align="center">
   <img src="docs/screenshots/dashboard.png.png" alt="Heat Guardian dashboard" width="1000"/>
 </p>
