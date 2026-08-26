@@ -25,7 +25,7 @@ Note: If the app stuck at any place please refresh it and try again because i de
 | **Project** | Heat Guardian |
 | **Author** | Dawood Ahmad |
 | **Primary Track** | Track 6 — Agentic AI |
-| **Secondary Track** | Track 1 and 4 — Resilient Cities & Infrastructure |
+| **Secondary Track** | Track 1 and 4 — Resilient Cities & Infrastructure, Government and environment|
 | **Core Data Source** | FortyGuard Temperature API (`/v1/heatmap`) |
 | **Fallback Data Source** | Open-Meteo (free, no API key required, global coverage) |
 | **Reasoning Engine** | Groq — `openai/gpt-oss-20b` |
