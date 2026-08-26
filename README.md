@@ -2,9 +2,9 @@
 
 **Real-time, hyperlocal heat-risk monitoring — powered by FortyGuard's Temperature Intelligence.**
 
-Built for **FortyGuard Hackathon '26** — Track 6: Agentic AI (primary), with Track 1: Resilient Cities & Infrastructure as a bonus angle.
+Built for **FortyGuard Hackathon '26** — **Track 6**: Agentic AI (primary), **Track 1**: Resilient Cities & Infrastructure, **Track 4** Government and Environment as a bonus angle.
 
-Note: If the app stuck at any place please refresh it and try again because i deploy it free on streamlit. It may send you a message that rate limit reach beacuse I use Open Meteo free feature. If you see loc error at Safe walk just turn off and then on the Safe walk button or refresh the page. These things are just for guidiance it is possible that you will not see any of these errors. The app is 100 percent working and tested and the proof is available in the video link below. 
+**Note**: If the app stuck at any place please refresh it and try again because i deploy it free on streamlit. It may send you a message that rate limit reach beacuse I use Open Meteo free feature. If you see loc error at Safe walk just turn off and then on the Safe walk button or refresh the page. These things are just for guidiance it is possible that you will not see any of these errors. The app is 100 percent working and tested and the proof is available in the video link below. 
 
  **GitHub Repo:** [github.com/Dawood-Ahmad-07/HEAT_GUARDIAN](https://github.com/Dawood-Ahmad-07/HEAT_GUARDIAN) &nbsp;
  
@@ -14,6 +14,8 @@ Note: If the app stuck at any place please refresh it and try again because i de
 
 **YouTube Video link**
 https://youtu.be/nnEvlIDI4Cw?si=5XwNE8LkPKs3uZHR
+
+
 
 <p align="center">
   <img src="docs/screenshots/dashboard.png.png" alt="Heat Guardian dashboard" width="1000"/>
@@ -44,8 +46,8 @@ Heat Guardian was built agent-first, so it maps directly onto **Track 6**, and i
 
 | **Track Requirement** | **Match** | **In Heat Guardian** |
 |---|:---:|---|
-| Goal-driven agent that takes a plain-language brief, chooses/sequences the right endpoints, and returns a ranked, justified plan | ✅ | **AI Route-Planning Agent** — accepts a free-form question (e.g. *"Phoenix to New York, suggest a route with low temperature"*), extracts entities via regex, independently picks FortyGuard vs. Open-Meteo, ranks every stop by temperature, and returns a Groq-generated recommendation with reasoning |
-| Monitoring agent that sweeps current conditions on its own schedule and fires alerts/actions on threshold crossing | ✅ | **Safe Walk Monitoring Agent** — polls the user's live GPS on a user-set interval (10 sec → 1 hr) via `st_autorefresh` and autonomously emails the user the instant risk crosses High/Extreme, unattended |
+| Goal-driven agent that takes a plain-language brief, chooses/sequences the right endpoints, and returns a ranked, justified plan | ✅ | **AI Route-Planning Agent** **With Forecast** — accepts a free-form question (e.g. *"Phoenix to New York, suggest a route with low temperature"*), extracts entities via regex, independently picks FortyGuard vs. Open-Meteo, ranks every stop by temperature, and returns a Groq-generated recommendation with reasoning |
+| Monitoring agent that sweeps current conditions on its own schedule and fires alerts/actions on threshold crossing | ✅ | **Safe Walk Monitoring Agent** — polls the user's **live GPS** on a user-set interval (10 sec → 1 hr) via `st_autorefresh` and autonomously emails the user the instant risk crosses High/Extreme, unattended |
 | Tool-using assistant whose API calls and reasoning are auditable, not a black box | ✅ | **Duplicate-Aware Alerting Agent** (`alert_key` gate) makes and shows a genuine suppress-or-fire judgment on every single reading — a visible decision trail, not a silent threshold check |
 
 ### ✅ Track 1 — Resilient Cities & Infrastructure (Strong Bonus Match)
@@ -54,22 +56,12 @@ Heat Guardian was built agent-first, so it maps directly onto **Track 6**, and i
 |---|:---:|---|
 | Cool-route planner returning lowest-heat-exposure path between two points using hourly heatmaps | ✅ | **AI Route-Planning Agent** ranks every stop on a route by hyperlocal FortyGuard temperature and returns the coolest path with justification |
 | Risk-colored map giving planners/residents at-a-glance visibility of dangerous zones | ✅ | **2 m-resolution Folium heat map** across 24 US cities + any manual location |
-| Bus-stop / playground heat-audit tool ranking public assets by peak-hour exposure | — | Not yet built — natural next feature on top of the existing heatmap engine |
-| Digital-twin overlay simulating tree canopy / reflective paving | — | Not in current scope |
 
 ### ✅ Track 4 — Government & Environment (Bonus Match)
 
 | **Track Requirement** | **Match** | **In Heat Guardian** |
 |---|:---:|---|
-| Worker-safety alerting service warning outdoor crews when a site crosses a heat threshold | ✅ | **Safe Walk Monitoring Agent**, reframed for construction crews, delivery riders, or field workers — identical threshold-triggered auto-email logic, no rebuild needed |
-| Heat-vulnerability map combining temperature with demographics | — | Current map shows raw hyperlocal risk, not a demographic overlay |
-| Agricultural micro-climate planting/irrigation guide | — | Not in current scope |
-
-### Tracks 2, 3, 5 & 7 — Not a Primary Focus of This Build
-
-Heat Guardian is not positioned as a buildings/energy tool (Track 2), an industrial siting/underwriting tool (Track 3), a from-scratch model-training exercise (Track 5), or a correlation/regression research toolkit (Track 7). It is intentionally scoped as an **agentic, human-facing safety product** — that focus is what makes Track 6 the honest primary track rather than a stretch.
-
----
+| Worker-safety alerting service warning outdoor crews when a site crosses a heat threshold | ✅ | **Safe Walk Monitoring Agent**, **Forecast** reframed for construction crews, delivery riders, or field workers — identical threshold-triggered auto-email logic, no rebuild needed |
 
 ## 🧠 What It Does
 
