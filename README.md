@@ -1,10 +1,11 @@
 # 🌡️ Heat Guardian
 
-**Real-time, hyperlocal heat-risk monitoring — powered by FortyGuard's Temperature Intelligence.**
-
+**Real-time, Hyperlocal, Point base Temperature, heat-risk monitoring — powered by FortyGuard's Temperature Intelligence.**
+ 
 Built for **FortyGuard Hackathon '26** — **Track 6**: Agentic AI (primary), **Track 1**: Resilient Cities & Infrastructure, **Track 4** Government and Environment as a bonus angle.
 
-**Note**: If the app stuck at any place please refresh it and try again because i deploy it free on streamlit. It may send you a message that rate limit reach beacuse I use Open Meteo free feature. If you see loc error at Safe walk just turn off and then on the Safe walk button or refresh the page. These things are just for guidiance it is possible that you will not see any of these errors. The app is 100 percent working and tested and the proof is available in the video link below. 
+**Note**: If the app stuck at any place please refresh it and try again because i deploy it free on streamlit. It may send you a message that rate limit reach beacuse I use Open Meteo free feature. If you see loc error at Safe walk just turn off and then on the Safe walk button or refresh the page. These things are just for guidiance it is possible that you will not see any of these errors. The app is **100 percent working and tested and the proof is available in the video** link below. 
+**FOR BETTER LOOK OPEN THE APP IN DARK MODE**
 
  **GitHub Repo:** [github.com/Dawood-Ahmad-07/HEAT_GUARDIAN](https://github.com/Dawood-Ahmad-07/HEAT_GUARDIAN) &nbsp;
  
@@ -32,6 +33,7 @@ https://youtu.be/nnEvlIDI4Cw?si=5XwNE8LkPKs3uZHR
 | **Primary Track** | Track 6 — Agentic AI |
 | **Secondary Track** | Track 1 and 4 — Resilient Cities & Infrastructure, Government and environment|
 | **Core Data Source** | FortyGuard Temperature API (`/v1/heatmap`) |
+| **Environmental Data** | FortyGuard Environmental Parameters API (point-based temperature, including 2m temperature) |
 | **Fallback Data Source** | Open-Meteo (free, no API key required, global coverage) |
 | **Reasoning Engine** | Groq — `openai/gpt-oss-20b` |
 | **Frontend** | Streamlit |
@@ -104,7 +106,7 @@ Judges look for genuine **perceive → reason → act** loops that run without a
 
 | **Capability** | **City-Resilience Relevance** |
 |---|---|
-| **Hyperlocal heat map**<br>(FortyGuard `/v1/heatmap`, 2 m resolution) | Street-level heat visibility for 24 US cities plus any manual US location — the granularity real urban planning requires, not a citywide average |
+| **Hyperlocal heat map**<br>(FortyGuard `/v1/heatmap`, 2 m resolution) | Street-level heat visibility for 24 US cities plus any manual US location — the granularity real urban planning requires, not a citywide average. |
 | **Safe Walk Mode** | Functions as pedestrian-protection infrastructure — the same category of intervention a city public-health department would want deployed at scale |
 | **Risk-colored Folium maps** | At-a-glance visibility for residents, planners, or emergency services into which parts of a city are currently dangerous |
 | **Cool-route planning** | Reframable as guidance for outdoor workers, delivery routes, or transit planning to minimize city-wide heat exposure |
@@ -136,6 +138,7 @@ Judges look for genuine **perceive → reason → act** loops that run without a
 |---|---|
 | **Frontend** | Streamlit, custom CSS (glassmorphism, dark navy theme, animated backgrounds) |
 | **Hyperlocal Heat Data** | FortyGuard Temperature API — `/v1/heatmap` (async submit-and-poll) |
+| **Temperature Data** | FortyGuard Environmental Parameters API |
 | **Fallback / Live Global Weather** | Open-Meteo — current conditions, 16-day forecast, and geocoding |
 | **Agentic Reasoning** | Groq — `openai/gpt-oss-20b` |
 | **Maps** | Folium + `streamlit-folium` |
