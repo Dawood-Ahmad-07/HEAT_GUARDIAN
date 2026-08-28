@@ -33,7 +33,7 @@ https://youtu.be/nnEvlIDI4Cw?si=5XwNE8LkPKs3uZHR
 | **Primary Track** | Track 6 — Agentic AI |
 | **Secondary Track** | Track 1 and 4 — Resilient Cities & Infrastructure, Government and environment|
 | **Core Data Source** | FortyGuard Temperature API (`/v1/heatmap`) |
-| **Environmental Data** | FortyGuard Environmental Parameters API (point-based temperature, including 2m temperature) |
+| **Environmental Data** | FortyGuard Environmental Parameters (`/v1/env_params`) (point-based temperature, including 2m temperature) |
 | **Fallback Data Source** | Open-Meteo (free, no API key required, global coverage) |
 | **Reasoning Engine** | Groq — `openai/gpt-oss-20b` |
 | **Frontend** | Streamlit |
