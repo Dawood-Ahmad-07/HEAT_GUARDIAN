@@ -3,9 +3,7 @@
 **Real-time, Hyperlocal, Point base Temperature, 2m temperature, Forecast, live location--heat-risk monitoring — powered by FortyGuard's Temperature Intelligence and Bonus Open Meteo.**
  
 Built for **FortyGuard Hackathon '26** — **Track 6**: Agentic AI **primary**, **Track 1**: Resilient Cities & Infrastructure, **Track 4** Government and Environment as a bonus angle.
-
-**Note** It can send you a message that rate limit reach beacuse I use Open Meteo free feature. If you see loc error at Safe walk just turn off and then on the Safe walk button or refresh the page. These things are just for guidiance it is possible that you will not see any of these errors. The app is **100 percent working and tested and the proof is available in the video** link below. 
-
+ 
 **FOR BETTER LOOK OPEN THE APP IN DARK MODE**
 
  **GitHub Repo:** [github.com/Dawood-Ahmad-07/HEAT_GUARDIAN](https://github.com/Dawood-Ahmad-07/HEAT_GUARDIAN) &nbsp;
