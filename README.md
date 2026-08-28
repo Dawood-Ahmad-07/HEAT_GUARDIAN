@@ -15,10 +15,8 @@ Built for **FortyGuard Hackathon '26** — **Track 6**: Agentic AI **primary**, 
 **YouTube Video link**
 https://youtu.be/nnEvlIDI4Cw?si=5XwNE8LkPKs3uZHR
 
-
-
 <p align="center">
-  <img src="docs/screenshots/dashboard.png.png" alt="Heat Guardian dashboard" width="1000"/>
+  <img src="docs/screenshots/dashboard.png.png" alt="Sign in screen" width="400"/>
 </p>
 
 ---
