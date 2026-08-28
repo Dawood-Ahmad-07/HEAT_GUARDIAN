@@ -206,7 +206,7 @@ This is what makes the project relevant beyond the hackathon: it isn't solving h
 ### Communication — 10%
 
 - A structured, walkthrough-driven README (this document) with numbered dashboard steps and screenshots for every major screen.
-- A live, clickable demo and public repo linked at the top of the document — no setup required to evaluate the claims.
+- A live, clickable **demo and public repo linked** at the top of the document, with a **YouTube video**— no setup required to evaluate the claims.
 - Explicit, honest track-by-track mapping above, so judges can verify every claim against a shipped feature rather than take it on faith.
 
 ---
