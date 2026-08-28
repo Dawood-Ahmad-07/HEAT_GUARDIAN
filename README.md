@@ -99,13 +99,20 @@ Judges look for genuine **perceive → reason → act** loops that run without a
 </p>
 
 **Safe Walk Mode**
+
 Safe Walk Mode is built for anyone who wants to be automatically warned if their current location turns dangerously hot — without having to keep checking the app themselves. It's aimed at people walking, working, or spending time outdoors: students, elderly users, delivery riders, and outdoor workers.
+
 **How it works**
+
 1.The user enables Safe Walk Mode and picks a check interval (10 sec → 1 hr).
+
 2.While the app tab stays open, it automatically re-checks the temperature at that interval using the device's live location.
+
 3.Since FortyGuard's API doesn't yet support live GPS polling, Safe Walk automatically switches to Open-Meteo for this real-time, location-based tracking — so live monitoring still works globally.
 Each reading is classified as Normal, High, or Extreme risk.
+
 4.If the risk crosses into High or Extreme, the app sends an automatic email alert to the user's Gmail — without them needing to press anything.
+
 5.Repeat alerts for the same ongoing condition are suppressed, so the user isn't spammed every refresh cycle.
 
 **Why this counts as agentic, not just "an app that calls an LLM":** the Safe Walk agent is given an intent once (*"watch over me"*) and then perceives, decides, and acts repeatedly and unattended for as long as it runs — the defining property of an agent loop, not a single request/response exchange.
