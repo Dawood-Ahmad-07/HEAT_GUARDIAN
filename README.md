@@ -21,7 +21,7 @@ https://youtu.be/nnEvlIDI4Cw?si=5XwNE8LkPKs3uZHR
 
 ---
 
-## 📋 Overview
+##  Overview
 
 | **Field** | **Details** |
 |---|---|
@@ -37,7 +37,7 @@ https://youtu.be/nnEvlIDI4Cw?si=5XwNE8LkPKs3uZHR
 
 ---
 
-## 🎯 Hackathon Track Alignment
+##  Hackathon Track Alignment
 
 Heat Guardian was built agent-first, so it maps directly onto **Track 6**, and its outputs are reframable across most of the other tracks with **zero fictional claims** — every ✅ below is a feature that exists in the shipped app today, not a roadmap promise.
 
@@ -62,7 +62,7 @@ Heat Guardian was built agent-first, so it maps directly onto **Track 6**, and i
 |---|:---:|---|
 | Worker-safety alerting service warning outdoor crews when a site crosses a heat threshold | ✅ | **Safe Walk Monitoring Agent**, **Forecast** reframed for construction crews, delivery riders, or field workers — identical threshold-triggered auto-email logic, no rebuild needed |
 
-## 🧠 What It Does
+##  What It Does
 
 Heat Guardian doesn't just display a temperature — it **watches, reasons, and acts**. A user signs in with Gmail, selects a location, and from that point forward three autonomous agents take over:
 
@@ -77,7 +77,7 @@ Heat Guardian doesn't just display a temperature — it **watches, reasons, and 
 
 ---
 
-## 🤖 Track 6 — Agentic AI (Primary)
+##  Track 6 — Agentic AI (Primary)
 
 Judges look for genuine **perceive → reason → act** loops that run without a human in the loop at each step — not a chatbot wrapper. Heat Guardian implements three such agents.
 
@@ -116,7 +116,7 @@ Each reading is classified as Normal, High, or Extreme risk.
 
 ---
 
-## 🏙️ Track 1 — Resilient Cities & Infrastructure (Bonus)
+##  Track 1 — Resilient Cities & Infrastructure (Bonus)
 
 | **Capability** | **City-Resilience Relevance** |
 |---|---|
@@ -132,7 +132,7 @@ Each reading is classified as Normal, High, or Extreme risk.
 
 ---
 
-## 🗺️ Dashboard Walkthrough
+##  Dashboard Walkthrough
 
 | **Step** | **What Happens** |
 |---|---|
@@ -146,7 +146,7 @@ Each reading is classified as Normal, High, or Extreme risk.
 
 ---
 
-## 🏗️ Architecture
+##  Architecture
 
 | **Layer** | **Technology** |
 |---|---|
