@@ -160,24 +160,11 @@ Each reading is classified as Normal, High, or Extreme risk.
 | **Agentic Reasoning** | Groq — `openai/gpt-oss-20b` |
 | **Maps** | Folium + `streamlit-folium` |
 | **Continuous Monitoring** | `streamlit-autorefresh` |
-| **Alerts** | Email, tied to the Gmail identity captured at sign-in |
-
-```
-User → Streamlit UI → [FortyGuard | Open-Meteo] → Risk Engine → {Map, Cards, Email Agent}
-                                                 ↘ AI Route Agent (Groq LLM) ↗
-```
-
+| **Alerts** | Email, tied to the Gmail identity captured at sign-in 
+---
 ---
 
-## 📌 Why Track 6 First
-
-Track 1's resilience story only works **because of** Track 6's agents. A city cannot staff a person to watch every resident's local temperature and email them at the right moment — an agent can. Heat Guardian's core claim is that hyperlocal temperature data becomes genuinely protective infrastructure only once it is paired with autonomous perceive-reason-act loops, rather than a dashboard someone has to remember to check. The agent does the work; Track 1 is what that work is for.
-
----
-
-## 🏆 Judging Criteria Alignment
-
-### Impact & Relevance — 40%
+### Impact & Relevance
 
 Heat isn't a niche problem — it's the one environmental hazard **every single person interacts with every day**, regardless of age, income, or location. Heat Guardian is built so its relevance scales across all of them:
 
@@ -187,9 +174,9 @@ Heat isn't a niche problem — it's the one environmental hazard **every single 
 - **A parent** can enable Safe Walk for a family member and be alerted the instant risk escalates, from anywhere.
 - **A city or logistics company** gets a commercially adoptable product on day one: the hyperlocal map, cool-route agent, and threshold-alerting engine already work end-to-end against a live, deployed app — not a mockup.
 
-This is what makes the project relevant beyond the hackathon: it isn't solving heat for "a user persona," it's solving it for the full range of people heat actually harms — which is the entire population of a hot city.
+It isn't solving heat for "a user persona," it's solving it for the full range of people heat actually harms — which is the entire population of a hot city.
 
-### Technical Execution — 35%
+### Technical Execution 
 
 - **Real, working integrations** — FortyGuard's async submit-and-poll `/v1/heatmap` endpoint for hyperlocal 2 m data, with an automatic, transparent fallback to Open-Meteo when a location or date falls outside FortyGuard's coverage rules.
 - **A genuine continuous agent loop** — `streamlit-autorefresh` drives real unattended monitoring, not a button the user has to press repeatedly.
@@ -197,18 +184,16 @@ This is what makes the project relevant beyond the hackathon: it isn't solving h
 - **Deployed and reachable right now** at the live demo link above — judges can test the actual product, not slides describing it.
 - **Graceful degradation** — the US-only + `2021-01-01`→today compliance check and automatic fallback mean the app never hard-fails outside FortyGuard's data-coverage rules.
 
-### Innovation — 15%
+### Innovation 
 
 - **Three cooperating agents, not one** — a planning agent, a monitoring agent, and a suppression agent each own a distinct decision, which is a materially different design from the common "single chatbot wrapper" hackathon pattern.
 - **Duplicate-aware alerting is a genuine UX innovation**: most heat-alert prototypes spam the user every refresh cycle; Heat Guardian's `alert_key` gate treats "should I even send this" as its own reasoning step, which is what makes the alerts trustworthy enough to actually leave on.
 - **Dual-source strategy** — FortyGuard for hyperlocal precision, Open-Meteo for global reach — lets the same product serve both a "street-level urban planning" use case and a "just tell me if it's safe outside" everyday use case.
 
-### Communication — 10%
+### Communication
 
 - A structured, walkthrough-driven README (this document) with numbered dashboard steps and screenshots for every major screen.
-- A live, clickable **demo and public repo linked** at the top of the document, with a **YouTube video**— no setup required to evaluate the claims.
-- Explicit, honest track-by-track mapping above, so judges can verify every claim against a shipped feature rather than take it on faith.
-
+- A live, clickable **demo and public repo linked** at the top of the document, with a **YouTube video**
 ---
 
 **Built by Dawood Ahmad for FortyGuard Hackathon '26.**
