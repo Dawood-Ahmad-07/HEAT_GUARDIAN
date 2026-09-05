@@ -893,7 +893,7 @@ if st.session_state.temp_result is not None:
                 tiles = hmd.get("tiles", [])
 
                 color_map = {"extreme": "red", "high": "orange", "normal": "green", "unknown": "gray"}
-                m = folium.Map(location=[m_lat, m_lon], zoom_start=13, tiles="CartoDB positron")
+                m = folium.Map(location=[m_lat, m_lon], zoom_start=13, tiles="OpenStreetMap")
 
                 if tiles:
                     tile_temps = [t["temp"] for t in tiles]
@@ -1181,7 +1181,7 @@ with st.container(border=True):
             m = folium.Map(
                 location=[safe_lat, safe_lon],
                 zoom_start=12,
-                tiles="CartoDB positron"
+                tiles="OpenStreetMap"
             )
             color_map = {
                 "extreme": "red",
