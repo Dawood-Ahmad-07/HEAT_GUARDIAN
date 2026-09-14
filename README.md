@@ -4,7 +4,7 @@
  
 Built for **FortyGuard Hackathon '26** — **Track 6**: Agentic AI **primary**, **Track 1**: Resilient Cities & Infrastructure, **Track 4** Government and Environment as a bonus angle.
  
-**Note: FOR BETTER LOOK OPEN THE APP IN DARK MODE and if the app takes time to respond or stuck just refresh it beacuse I deploy it free on Streamlit**
+**Note:If the app takes time to respond or stuck at very first time just refresh it beacuse I deploy it free on Streamlit**
 
  **GitHub Repo:** [github.com/Dawood-Ahmad-07/HEAT_GUARDIAN](https://github.com/Dawood-Ahmad-07/HEAT_GUARDIAN) &nbsp;
  
